@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import,print_function
+from __future__ import absolute_import, print_function
 
 import os
 import sys
 import code
-import warnings
-import string
 import inspect
 
-import argparse
+import configargparse
 
 from flask import _request_ctx_stack
-
-from .cli import prompt, prompt_pass, prompt_bool, prompt_choices
 from ._compat import izip, text_type
 
 
@@ -29,11 +25,14 @@ class InvalidCommand(Exception):
         """
     pass
 
+
 class Group(object):
     """
     Stores argument groups and mutually exclusive groups for
-    `ArgumentParser.add_argument_group <http://argparse.googlecode.com/svn/trunk/doc/other-methods.html#argument-groups>`
-    or `ArgumentParser.add_mutually_exclusive_group <http://argparse.googlecode.com/svn/trunk/doc/other-methods.html#add_mutually_exclusive_group>`.
+    `ArgumentParser.add_argument_group
+    <http://argparse.googlecode.com/svn/trunk/doc/other-methods.html#argument-groups>`
+    or `ArgumentParser.add_mutually_exclusive_group
+    <http://argparse.googlecode.com/svn/trunk/doc/other-methods.html#add_mutually_exclusive_group>`.
 
     Note: The title and description params cannot be used with the exclusive
     or required params.
@@ -81,7 +80,8 @@ class Option(object):
     :param action: The basic type of action to be taken when this argument
                    is encountered at the command-line.
     :param nargs: The number of command-line arguments that should be consumed.
-    :param const: A constant value required by some action and nargs selections.
+    :param const: A constant value required by some action
+                  and nargs selections.
     :param default: The value produced if the argument is absent from
                     the command-line.
     :param type: The type to which the command-line arg should be converted.
@@ -173,17 +173,17 @@ class Command(object):
         return self.option_list
 
     def create_parser(self, *args, **kwargs):
-        func_stack = kwargs.pop('func_stack',())
-        parent = kwargs.pop('parent',None)
-        parser = argparse.ArgumentParser(*args, add_help=False, **kwargs)
+        func_stack = kwargs.pop('func_stack', ())
+        parent = kwargs.pop('parent', None)
+        parser = configargparse.ArgumentParser(*args, add_help=False, **kwargs)
         help_args = self.help_args
         while help_args is None and parent is not None:
             help_args = parent.help_args
-            parent = getattr(parent,'parent',None)
+            parent = getattr(parent, 'parent', None)
 
         if help_args:
             from flask_script import add_help
-            add_help(parser,help_args)
+            add_help(parser, help_args)
 
         for option in self.get_options():
             if isinstance(option, Group):
@@ -210,7 +210,8 @@ class Command(object):
     def __call__(self, app=None, *args, **kwargs):
         """
         Handles the command with the given app.
-        Default behaviour is to call ``self.run`` within a test request context.
+        Default behaviour is to call ``self.run``
+            within a test request context.
         """
         with app.test_request_context():
             return self.run(*args, **kwargs)
@@ -221,6 +222,7 @@ class Command(object):
         arguments as configured by the Command options.
         """
         raise NotImplementedError
+
 
 class Shell(Command):
     """
@@ -246,7 +248,8 @@ class Shell(Command):
 
     banner = ''
 
-    help = description = 'Runs a Python shell inside Flask application context.'
+    description = 'Runs a Python shell inside Flask application context.'
+    help = description
 
     def __init__(self, banner=None, make_context=None, use_ipython=True,
                  use_bpython=True, use_ptipython=True, use_ptpython=True):
@@ -295,10 +298,14 @@ class Shell(Command):
     def run(self, no_ipython, no_bpython, no_ptipython, no_ptpython):
         """
         Runs the shell.
-        If no_ptipython is False or use_ptipython is True, then a PtIPython shell is run (if installed).
-        If no_ptpython is False or use_ptpython is True, then a PtPython shell is run (if installed).
-        If no_bpython is False or use_bpython is True, then a BPython shell is run (if installed).
-        If no_ipython is False or use_python is True then a IPython shell is run (if installed).
+        If no_ptipython is False or use_ptipython is True,
+            then a PtIPython shell is run (if installed).
+        If no_ptpython is False or use_ptpython is True,
+        then a PtPython shell is run (if installed).
+        If no_bpython is False or use_bpython is True,
+            then a BPython shell is run (if installed).
+        If no_ipython is False or use_python is True
+            then a IPython shell is run (if installed).
         """
 
         context = self.get_context()
@@ -308,7 +315,11 @@ class Shell(Command):
             try:
                 from ptpython.ipython import embed
                 history_filename = os.path.expanduser('~/.ptpython_history')
-                embed(banner1=self.banner, user_ns=context, history_filename=history_filename)
+                embed(
+                    banner1=self.banner,
+                    user_ns=context,
+                    history_filename=history_filename
+                )
                 return
             except ImportError:
                 pass
@@ -351,7 +362,7 @@ class Server(Command):
 
     :param host: server host
     :param port: server port
-    :param use_debugger: Flag whether to default to using the Werkzeug debugger.
+    :param use_debugger: Flag whether to default to Werkzeug debugger.
                          This can be overriden in the command line
                          by passing the **-d** or **-D** flag.
                          Defaults to False, for security.
@@ -363,7 +374,9 @@ class Server(Command):
     :param threaded: should the process handle each request in a separate
                      thread?
     :param processes: number of processes to spawn
-    :param passthrough_errors: disable the error catching. This means that the server will die on errors but it can be useful to hook debuggers in (pdb etc.)
+    :param passthrough_errors: disable the error catching.
+        This means that the server will die on errors
+        but it can be useful to hook debuggers in (pdb etc.)
     :param ssl_crt: path to ssl certificate file
     :param ssl_key: path to ssl key file
     :param options: :func:`werkzeug.run_simple` options.
@@ -458,7 +471,10 @@ class Server(Command):
             if use_debugger is None:
                 use_debugger = True
                 if sys.stderr.isatty():
-                    print("Debugging is on. DANGER: Do not allow random users to connect to this server.", file=sys.stderr)
+                    print(
+                        "Debugging on. DANGER: Ban guest access to server.",
+                        file=sys.stderr
+                    )
         if use_reloader is None:
             use_reloader = use_debugger
 
@@ -527,7 +543,10 @@ class ShowUrls(Command):
                 rows.append(("<%s>" % e, None, None))
                 column_length = 1
         else:
-            rules = sorted(current_app.url_map.iter_rules(), key=lambda rule: getattr(rule, order))
+            rules = sorted(
+                current_app.url_map.iter_rules(),
+                key=lambda rule: getattr(rule, order)
+            )
             for rule in rules:
                 rows.append((rule.rule, rule.endpoint, None))
             column_length = 2

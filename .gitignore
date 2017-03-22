@@ -14,3 +14,5 @@ dist/
 *.zip
 *.sublime-*
 .env
+venv
+.eggs

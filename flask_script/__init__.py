@@ -9,7 +9,7 @@ import warnings
 from gettext import gettext as _
 from collections import OrderedDict
 
-import argparse
+import configargparse
 
 from flask import Flask
 from flask._compat import text_type
@@ -21,13 +21,13 @@ from .cli import prompt, prompt_pass, prompt_bool, prompt_choices
 __all__ = ["Command", "Shell", "Server", "Manager", "Group", "Option",
            "prompt", "prompt_pass", "prompt_bool", "prompt_choices"]
 
-safe_actions = (argparse._StoreAction,
-                argparse._StoreConstAction,
-                argparse._StoreTrueAction,
-                argparse._StoreFalseAction,
-                argparse._AppendAction,
-                argparse._AppendConstAction,
-                argparse._CountAction)
+safe_actions = (configargparse._StoreAction,
+                configargparse._StoreConstAction,
+                configargparse._StoreTrueAction,
+                configargparse._StoreFalseAction,
+                configargparse._AppendAction,
+                configargparse._AppendConstAction,
+                configargparse._CountAction)
 
 
 try:
@@ -36,11 +36,17 @@ try:
 except ImportError:
     ARGCOMPLETE_IMPORTED = False
 
-def add_help(parser, help_args): 
+
+def add_help(parser, help_args):
     if not help_args:
         return
-    parser.add_argument(*help_args,
-                        action='help', default=argparse.SUPPRESS, help=_('show this help message and exit'))
+    parser.add_argument(
+        *help_args,
+        action='help',
+        default=configargparse.SUPPRESS,
+        help=_('show this help message and exit')
+    )
+
 
 class Manager(object):
     """
@@ -72,13 +78,13 @@ class Manager(object):
     :param disable_argcomplete: disable automatic loading of argcomplete.
 
     """
-    help_args = ('-?','--help')
+    help_args = ('-?', '--help')
 
     def __init__(self, app=None, with_default_commands=None, usage=None,
                  help=None, description=None, disable_argcomplete=False):
 
         self.app = app
-        
+
         self.subparser_kwargs = dict()
 
         self._commands = OrderedDict()
@@ -142,21 +148,24 @@ class Manager(object):
     def __call__(self, app=None, **kwargs):
         """
         This procedure is called with the App instance (if this is a
-        sub-Manager) and any options. 
+        sub-Manager) and any options.
 
-        If your sub-Manager does not override this, any values for options will get lost.
+        If your sub-Manager does not override this,
+        any values for options will get lost.
         """
         # If we have a parent, we are a sub-manager
         if self.parent and self.app:
             # call our own app and use the result if it's not None
             res = self.app(app=app, **kwargs)
-            if res != None:
+            if res is not None:
                 app = res
 
         if app is None:
             app = self.app
             if app is None:
-                raise Exception("There is no app here. This is unlikely to work.")
+                raise Exception(
+                    "There is no app here. This is unlikely to work."
+                )
 
         if isinstance(app, Flask):
             if kwargs:
@@ -168,8 +177,11 @@ class Manager(object):
         return app
 
     def create_app(self, *args, **kwargs):
-        warnings.warn("create_app() is deprecated; use __call__().", warnings.DeprecationWarning)
-        return self(*args,**kwargs)
+        warnings.warn(
+            "create_app() is deprecated; use __call__().",
+            warnings.DeprecationWarning
+        )
+        return self(*args, **kwargs)
 
     def create_parser(self, prog, func_stack=(), parent=None):
         """
@@ -177,16 +189,17 @@ class Manager(object):
         by get_options(), and subparser for the given commands.
         """
         prog = os.path.basename(prog)
-        func_stack=func_stack+(self,)
+        func_stack = func_stack+(self,)
 
-        options_parser = argparse.ArgumentParser(add_help=False)
+        options_parser = configargparse.ArgumentParser(add_help=False)
         for option in self.get_options():
             options_parser.add_argument(*option.args, **option.kwargs)
 
-        parser = argparse.ArgumentParser(prog=prog, usage=self.usage,
-                                         description=self.description,
-                                         parents=[options_parser],
-                                         add_help=False)
+        parser = configargparse.ArgumentParser(
+                prog=prog, usage=self.usage,
+                description=self.description,
+                parents=[options_parser],
+                add_help=False)
         add_help(parser, self.help_args)
 
         self._patch_argparser(parser)
@@ -196,11 +209,15 @@ class Manager(object):
         for name, command in self._commands.items():
             usage = getattr(command, 'usage', None)
             help = getattr(command, 'help', None)
-            if help is None: help = command.__doc__
+            if help is None:
+                help = command.__doc__
             description = getattr(command, 'description', None)
-            if description is None: description = command.__doc__
+            if description is None:
+                description = command.__doc__
 
-            command_parser = command.create_parser(name, func_stack=func_stack, parent=self)
+            command_parser = command.create_parser(
+                name, func_stack=func_stack, parent=self
+            )
 
             subparser = subparsers.add_parser(name, usage=usage, help=help,
                                               description=description,
@@ -210,8 +227,8 @@ class Manager(object):
             if isinstance(command, Manager):
                 self._patch_argparser(subparser)
 
-        ## enable autocomplete only for parent parser when argcomplete is
-        ## imported and it is NOT disabled in constructor
+        # enable autocomplete only for parent parser when argcomplete is
+        # imported and it is NOT disabled in constructor
         if parent is None and ARGCOMPLETE_IMPORTED \
                 and not self.disable_argcomplete:
             argcomplete.autocomplete(parser, always_complete_options=True)
@@ -358,7 +375,7 @@ class Manager(object):
     def handle(self, prog, args=None):
         self.set_defaults()
         app_parser = self.create_parser(prog)
-        
+
         args = list(args or [])
         app_namespace, remaining_args = app_parser.parse_known_args(args)
 
@@ -369,15 +386,19 @@ class Manager(object):
             app_parser.error('too few arguments')
 
         last_func = func_stack[-1]
-        if remaining_args and not getattr(last_func, 'capture_all_args', False):
+        if remaining_args and not getattr(
+            last_func, 'capture_all_args', False
+        ):
             app_parser.error('too many arguments')
 
         args = []
         for handle in func_stack:
 
             # get only safe config options
-            config_keys = [action.dest for action in handle.parser._actions
-                               if handle is last_func or action.__class__ in safe_actions]
+            config_keys = [
+                    action.dest for action in handle.parser._actions
+                    if handle is last_func or action.__class__ in safe_actions
+                ]
 
             # pass only safe app config keys
             config = dict((k, v) for k, v in iteritems(kwargs)
@@ -387,12 +408,14 @@ class Manager(object):
             kwargs = dict((k, v) for k, v in iteritems(kwargs)
                           if k not in config_keys)
 
-            if handle is last_func and getattr(last_func, 'capture_all_args', False):
+            if handle is last_func and getattr(
+                last_func, 'capture_all_args', False
+            ):
                 args.append(remaining_args)
             try:
                 res = handle(*args, **config)
             except TypeError as err:
-                err.args = ("{0}: {1}".format(handle,str(err)),)
+                err.args = ("{0}: {1}".format(handle, str(err)),)
                 raise
 
             args = [res]

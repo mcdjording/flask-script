@@ -25,13 +25,16 @@ try:
 except ImportError:
     pass
 
-install_requires = ['Flask']
+install_requires = [
+        'Flask',
+        'ConfigArgParse'
+]
 
 setup(
     name='Flask-Script',
     version=version,
     url='http://github.com/smurfix/flask-script',
-	download_url = 'https://github.com/smurfix/flask-script/tarball/v'+version,
+    download_url='https://github.com/smurfix/flask-script/tarball/v'+version,
     license='BSD',
     author='Dan Jacob',
     author_email='danjac354@gmail.com',
